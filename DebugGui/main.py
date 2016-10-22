@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from gi.repository import Gtk
-from gi.repository import Gdk
+import select
 
+from gi.repository import Gtk, GObject
+
+from views import MapView, LogsView
+from robot_com import SerialRobot, LoggedRobot
 
 """
 Tabs:
@@ -24,125 +27,102 @@ infos:
 
 """
 
+SERIAL_DEVICE = '/dev/ttyUSB0'
+SERIAL_SPEED = 115200
+LOG_FILE = '../Deoxys/log2.txt'
 
-class App(Gtk.Window):
-    def __init__(self, tabs):
-        super(App, self).__init__()
 
-        # gtk.gdk.threads_init()
+class App(object):
+    def __init__(self):
+        self.logs = []
+        self.tmp_logs = []
+        self.data = []
+
+        # self.robot = SerialRobot(SERIAL_DEVICE, SERIAL_SPEED)
+        self.robot = LoggedRobot(LOG_FILE)
+
+        self.main_window = MainWindow()
+
+        GObject.threads_init()
+        GObject.timeout_add(1000./20, self.read_serial_and_update_gui)
+
+        self.main_window.show_all()
+
+    def run(self):
+        self.main_window.run()
+
+    def quit(self):
+        self.robot.quit()
+
+    def read_serial_and_update_gui(self):
+
+        def parse(input_logs):
+            return {'pos': 42}
+
+        while True:
+            # read serial (serial2logs)
+
+            ready_for_read, _, _ = select.select([self.robot.fd], [], [], 0)
+
+            if len(ready_for_read) == 0:
+                break
+
+            line = self.robot.readline()
+            if line != None:
+
+                if line != '':
+                    self.logs.append(line)
+                    self.tmp_logs.append(line)
+                else:
+                    # parse logs (logs2data)
+
+                    self.data.append(parse(self.tmp_logs))
+                    self.tmp_logs = []
+
+                    # update gui (data2gui)
+                    print('update gui with', self.data[-1])
+
+                    break  # prevent the gui from becomming unresponsive
+
+        return True  # call this function again
+
+
+class MainWindow(Gtk.Window):
+    def __init__(self):
+        super(MainWindow, self).__init__()
+
+        handlers = {
+            'destroy': self.quit,
+            'delete-event': self.quit,
+        }
+        tabs = (
+            ('Map', MapView()),
+            ('Logs', LogsView()),
+        )
 
         self.set_title('Gali debug')
         self.set_default_size(800, 600)
-        for k, v in {
-            'destroy': self.app_quit,
-            'delete-event': self.app_quit,
-        }.items():
-            self.connect(k, v)
         self.set_border_width(10)
+        for k, v in handlers.items():
+            self.connect(k, v)
 
         self.notebook = Gtk.Notebook()
         self.notebook.set_tab_pos(Gtk.PositionType.TOP)
-        self.notebook.connect("switch-page", self.page_changed)
-
         for tab_title, tab_widget in tabs:
             self.notebook.append_page(tab_widget, Gtk.Label(tab_title))
-
         self.add(self.notebook)
 
-    def app_quit(self, *args):
+    def quit(self, *args):
         Gtk.main_quit()
 
-    def main(self):
+    def run(self):
         Gtk.main()
-
-    def page_changed(self, notebook, page, i):
-        return
-        tab_child = notebook.get_nth_page(i)
-        tab_label = notebook.get_tab_label(tab_child)
-        print(tab_label.get_text())
-
-
-class MapView(Gtk.Grid):
-    def __init__(self):
-        super(Gtk.Grid, self).__init__()
-
-        self.set_column_homogeneous(True)
-        self.set_row_homogeneous(True)
-        self.set_row_spacing(5)
-        self.set_column_spacing(5)
-
-        button_1 = Gtk.Button(label='button 1')
-        self.attach(button_1, 0, 0, 1, 1)
-
-        infos = Gtk.VBox()
-        self.attach(infos, 1, 0, 1, 1)
-
-        labels = (
-            (Gtk.Label('Phys'), (
-                Gtk.Label('Pos'),
-                Gtk.Label('Angle'),
-                Gtk.Label('Speed'),
-            )),
-            (Gtk.Label('MC'), (
-                Gtk.Label('Encs'),
-                Gtk.Label('Motors (dir, pwm, ... consumption ?)'),
-                Gtk.Label('PID'),
-            )),
-            (Gtk.Label('I/O'), (
-                Gtk.Label('Sensors (sharps)'),
-                Gtk.Label('Actionneurs (ax12, servo, pompe'),
-            )),
-            (Gtk.Label('Send order'), (
-                Gtk.Label('Dist'),
-                Gtk.Label('Angle'),
-                Gtk.Label('Pos'),
-            )),
-        )
-
-        for i, (title, childs) in enumerate(labels):
-            infos.pack_start(title, True, True, 0)
-
-            tmp = Gtk.VBox()
-            for j, child in enumerate(childs):
-                tmp.pack_start(child, True, True, 0)
-            infos.pack_start(tmp, True, True, 5)
-            infos.pack_start(Gtk.HSeparator(), True, True, 0)
-
-
-class LogsView(Gtk.Grid):
-    def __init__(self):
-        super(Gtk.Grid, self).__init__()
-
-        self.set_column_homogeneous(True)
-        self.set_row_homogeneous(True)
-        self.set_row_spacing(5)
-        self.set_column_spacing(5)
-
-        logs = Gtk.TextView()
-        logs.set_editable(False)
-        # logs.set_monospace(True)
-        tb = Gtk.TextBuffer()
-        tb.set_text('hello')
-        logs.set_buffer(tb)
-        logs.set_left_margin(10)
-        # logs.set_bottom_margin(10)
-        logs.set_property('margin', 10)
-        logs.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(0.9, 0.9, 0.9, 1.0))
-        self.attach(logs, 0, 0, 1, 9)
-
-        cmd = Gtk.Entry()
-        # cmd.set_top_margin(10)
-        cmd.set_property('margin', 10)
-        self.attach(cmd, 0, 9, 1, 1)
 
 
 def main():
-    app = App((
-        ('Map', MapView()),
-        ('Logs', LogsView()),
-    ))
-    app.show_all()
-    app.main()
+    app = App()
+    app.run()
+    app.quit()
 
 
 if __name__ == '__main__':
