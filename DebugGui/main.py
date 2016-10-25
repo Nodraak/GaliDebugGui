@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import re
-import select
-
 from collections import OrderedDict
+import select
 
 from gi.repository import Gtk, GObject
 
 from views import MapView, LogsView
-from robot_com import SerialRobot, LoggedRobot
+from robot_com import SerialRobot, LoggedRobot, parse_log_to_dic
 
 """
 Tabs:
@@ -65,35 +63,13 @@ class App(object):
             handling loop, this parse the data and update the gui.
         """
 
-        def parse(input_logs):
-            c = lambda pattern: re.compile(pattern, flags=re.MULTILINE)
-
-            compiled_re = (
-                c(r'^\[(timer/match)\] (.+)$'),
-                c(r'^\[(MC/i)\] (.+) (.+)$'),
-                c(r'^\[(MC/t_pid)\] \(dist angle\) (.+) (.+)$'),
-                c(r'^\[(MC/o_mot)\] \(dir pwm current\) (.+) (.+) \((.+) A\) \| (.+) (.+) \((.+) A\)$'),
-                c(r'^\[(MC/o_robot)\] \(pos angle speed\) (.+) (.+) (.+) (.+)$'),
-                c(r'^\[(timer/loop)\] (.+)$'),
-            )
-
-            matched = {}
-
-            for c in compiled_re:
-                m = c.search(input_logs)
-                if m:
-                    g = m.groups()
-                    matched[g[0]] = g[1:]
-
-            return matched
-
-
         while True:
             # read serial (serial2logs)
 
             ready_for_read, _, _ = select.select([self.robot.fd], [], [], 0)
 
             if len(ready_for_read) == 0:
+                print('nothing to read, breaking')
                 break
 
             line = self.robot.readline()
@@ -105,13 +81,18 @@ class App(object):
                 else:
                     # parse logs (logs2data)
 
-                    self.data.append(parse('\n'.join(self.tmp_logs)))
+                    new_logs = '\n'.join(self.tmp_logs)
+                    new_dic = parse_log_to_dic(new_logs)
                     self.tmp_logs = []
 
-                    # update gui (data2gui)
+                    if new_dic:
+                        self.data.append(new_dic)
 
-                    if self.data[-1]:
-                        self.main_window.update_gui(self.data[-1])
+                        # update gui (data2gui)
+                        self.main_window.tabs['Map'].update_gui(new_dic)
+                        self.main_window.tabs['Logs'].update_gui(new_logs)
+
+                        print('updated gui')
 
                     break  # prevent the gui from becomming unresponsive
 
@@ -148,10 +129,6 @@ class MainWindow(Gtk.Window):
 
     def run(self):
         Gtk.main()
-
-    def update_gui(self, dic):
-        for k, v in self.tabs.items():
-            v.update_gui(dic)
 
 
 def main():
