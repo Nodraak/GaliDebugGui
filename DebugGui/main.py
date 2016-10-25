@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import re
 import select
+
+from collections import OrderedDict
 
 from gi.repository import Gtk, GObject
 
@@ -55,9 +58,35 @@ class App(object):
         self.robot.quit()
 
     def read_serial_and_update_gui(self):
+        """
+            This function is called every X ms thanks to `GObject.timeout_add`.
+            It read the robot debug log if needed (ie. without blocking) line by
+            line, and when all information is gathered from a given robot main
+            handling loop, this parse the data and update the gui.
+        """
 
         def parse(input_logs):
-            return {'pos': 42}
+            c = lambda pattern: re.compile(pattern, flags=re.MULTILINE)
+
+            compiled_re = (
+                c(r'^\[(timer/match)\] (.+)$'),
+                c(r'^\[(MC/i)\] (.+) (.+)$'),
+                c(r'^\[(MC/t_pid)\] \(dist angle\) (.+) (.+)$'),
+                c(r'^\[(MC/o_mot)\] \(dir pwm current\) (.+) (.+) \((.+) A\) \| (.+) (.+) \((.+) A\)$'),
+                c(r'^\[(MC/o_robot)\] \(pos angle speed\) (.+) (.+) (.+) (.+)$'),
+                c(r'^\[(timer/loop)\] (.+)$'),
+            )
+
+            matched = {}
+
+            for c in compiled_re:
+                m = c.search(input_logs)
+                if m:
+                    g = m.groups()
+                    matched[g[0]] = g[1:]
+
+            return matched
+
 
         while True:
             # read serial (serial2logs)
@@ -76,11 +105,13 @@ class App(object):
                 else:
                     # parse logs (logs2data)
 
-                    self.data.append(parse(self.tmp_logs))
+                    self.data.append(parse('\n'.join(self.tmp_logs)))
                     self.tmp_logs = []
 
                     # update gui (data2gui)
-                    print('update gui with', self.data[-1])
+
+                    if self.data[-1]:
+                        self.main_window.update_gui(self.data[-1])
 
                     break  # prevent the gui from becomming unresponsive
 
@@ -95,10 +126,10 @@ class MainWindow(Gtk.Window):
             'destroy': self.quit,
             'delete-event': self.quit,
         }
-        tabs = (
+        self.tabs = OrderedDict((
             ('Map', MapView()),
             ('Logs', LogsView()),
-        )
+        ))
 
         self.set_title('Gali debug')
         self.set_default_size(800, 600)
@@ -108,7 +139,7 @@ class MainWindow(Gtk.Window):
 
         self.notebook = Gtk.Notebook()
         self.notebook.set_tab_pos(Gtk.PositionType.TOP)
-        for tab_title, tab_widget in tabs:
+        for tab_title, tab_widget in self.tabs.items():
             self.notebook.append_page(tab_widget, Gtk.Label(tab_title))
         self.add(self.notebook)
 
@@ -117,6 +148,10 @@ class MainWindow(Gtk.Window):
 
     def run(self):
         Gtk.main()
+
+    def update_gui(self, dic):
+        for k, v in self.tabs.items():
+            v.update_gui(dic)
 
 
 def main():

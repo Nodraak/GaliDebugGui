@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 from gi.repository import Gtk, Gdk, GObject
@@ -19,7 +19,10 @@ class MapView(Gtk.Grid):
         infos = Gtk.VBox()
         self.attach(infos, 1, 0, 1, 1)
 
-        labels = (
+        self.labels = (
+            (Gtk.Label('X'), (
+                Gtk.Label('Timer'),
+            )),
             (Gtk.Label('Phys'), (
                 Gtk.Label('Pos'),
                 Gtk.Label('Angle'),
@@ -41,7 +44,7 @@ class MapView(Gtk.Grid):
             )),
         )
 
-        for i, (title, childs) in enumerate(labels):
+        for i, (title, childs) in enumerate(self.labels):
             infos.pack_start(title, True, True, 0)
 
             tmp = Gtk.VBox()
@@ -49,6 +52,10 @@ class MapView(Gtk.Grid):
                 tmp.pack_start(child, True, True, 0)
             infos.pack_start(tmp, True, True, 5)
             infos.pack_start(Gtk.HSeparator(), True, True, 0)
+
+    def update_gui(self, dic):
+        label_timer = self.labels[0][1][0]
+        label_timer.set_text('Timer: %s' % dic['timer/match'])
 
 
 class LogsView(Gtk.Grid):
@@ -76,3 +83,6 @@ class LogsView(Gtk.Grid):
         # cmd.set_top_margin(10)
         cmd.set_property('margin', 10)
         self.attach(cmd, 0, 9, 1, 1)
+
+    def update_gui(self, dic):
+        pass  # todo
