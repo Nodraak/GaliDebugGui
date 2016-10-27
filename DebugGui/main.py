@@ -9,24 +9,6 @@ from gi.repository import Gtk, GObject
 from views import MapView, LogsView
 from robot_com import SerialRobot, LoggedRobot, parse_log_to_dic
 
-"""
-Tabs:
-    map (drawing area) + basic info
-    infos
-    logs (scrolling text + text edit)
-    plots (matplolib / pyplot ?)
-
-infos:
-    Phys:
-        pos, angle, speed
-    MC:
-        encs, motors (dir, pwm, ... consumption ?), pid
-        orders
-    IO:
-        capteurs (sharp)
-        actionneurs (ax12, servos, pompe)
-
-"""
 
 SERIAL_DEVICE = '/dev/ttyUSB0'
 SERIAL_SPEED = 115200
@@ -35,6 +17,9 @@ LOG_FILE = '../Deoxys/log2.txt'
 
 class App(object):
     def __init__(self):
+        self.is_robot_com_ready = False
+        self.is_read_serial_enabled = True
+
         self.logs = []
         self.tmp_logs = []
         self.data = []
@@ -53,6 +38,7 @@ class App(object):
         self.main_window.run()
 
     def quit(self):
+        self.is_read_serial_enabled = False
         self.robot.quit()
 
     def read_serial_and_update_gui(self):
@@ -69,7 +55,6 @@ class App(object):
             ready_for_read, _, _ = select.select([self.robot.fd], [], [], 0)
 
             if len(ready_for_read) == 0:
-                print('nothing to read, breaking')
                 break
 
             line = self.robot.readline()
@@ -79,6 +64,10 @@ class App(object):
                     self.logs.append(line)
                     self.tmp_logs.append(line)
                 else:
+                    if not self.is_robot_com_ready:
+                        self.is_robot_com_ready = True
+                        break
+
                     # parse logs (logs2data)
 
                     new_logs = '\n'.join(self.tmp_logs)
@@ -92,11 +81,9 @@ class App(object):
                         self.main_window.tabs['Map'].update_gui(new_dic)
                         self.main_window.tabs['Logs'].update_gui(new_logs)
 
-                        print('updated gui')
-
                     break  # prevent the gui from becomming unresponsive
 
-        return True  # call this function again
+        return self.is_read_serial_enabled  # should this function be called again ?
 
 
 class MainWindow(Gtk.Window):

@@ -14,6 +14,73 @@ class MyLabel(Gtk.Label):
             getattr(self, k)(v)
 
 
+class Board(Gtk.DrawingArea):
+    def __init__(self):
+        super(Board, self).__init__()
+        self.set_property('margin', 10)
+        self.connect('draw', self.on_draw)
+
+    def on_draw(self, canvas, cr):
+        try:  # todo: this is ugly, please fix it
+            x, y, angle = self.foo
+        except AttributeError:
+            x, y, angle = 0, 0, 0
+
+        stuff_to_draw = [
+            self.draw_board,
+            self.draw_robot,
+        ]
+
+        win = canvas.get_window()
+        # cr = win.cairo_create()
+        w = win.get_width()
+        h = win.get_height()
+
+        cr.scale(0.2, 0.2)
+
+        for callback in stuff_to_draw:
+            cr.save()
+            callback(cr, (w, h), (x, y, angle))
+            cr.restore()
+
+    def draw_board(self, cr, window_size, robot_pos):
+        # clear
+        cr.set_source_rgb(1, 1, 1)
+        cr.rectangle(0, 0, window_size[0], window_size[1])
+        cr.fill()
+
+        # draw board
+        cr.set_source_rgb(0.9, 0.9, 0.9)
+        cr.rectangle(0+50, 0+50, 2000, 3000)
+        cr.fill()
+
+        # draw grid
+        size = 1
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        for x in range(0, 2000+1, 100):
+            cr.rectangle(x+50, 0+50, size, 3000)
+        for y in range(0, 3000+1, 100):
+            cr.rectangle(0+50, y+50, 2000, size)
+        cr.fill()
+        cr.set_source_rgb(0, 0, 0)
+        for x in range(0, 2000+1, 1000):
+            cr.rectangle(x+50, 0+50, size, 3000)
+        for y in range(0, 3000+1, 1000):
+            cr.rectangle(0+50, y+50, 2000, size)
+        cr.fill()
+
+
+    def draw_robot(self, cr, window_size, robot_pos):
+        x, y, angle = robot_pos
+        robot_size = (400, 300)
+
+        cr.set_source_rgb(0.5, 0.5, 1)
+        cr.translate(x+50+robot_size[0]/2+100, -y+50+robot_size[1]/2+500)
+        cr.rotate(-angle*math.pi/180 + math.pi/2)
+        cr.rectangle(-robot_size[0]/2, -robot_size[1]/2, robot_size[0], robot_size[1])
+        cr.fill()
+
+
 class MapView(Gtk.Grid):
     def __init__(self):
         super(MapView, self).__init__()
@@ -23,12 +90,11 @@ class MapView(Gtk.Grid):
         self.set_row_spacing(5)
         self.set_column_spacing(5)
 
-        self.canvas = Gtk.DrawingArea()
-        self.canvas.set_property('margin', 10)
-        self.attach(self.canvas, 0, 0, 1, 1)
+        self.canvas = Board()
+        self.attach(self.canvas, 0, 0, 3, 1)
 
         infos = Gtk.VBox()
-        self.attach(infos, 1, 0, 1, 1)
+        self.attach(infos, 3, 0, 1, 1)
 
         LABELS = OrderedDict((
             ('X', ('Timer', )),
@@ -57,35 +123,21 @@ class MapView(Gtk.Grid):
             infos.pack_start(Gtk.HSeparator(), True, True, 0)
 
     def update_gui(self, dic):
-        self.labels['X']['Timer'].set_text(dic['timer/match'][0])
+        # board
 
-        self.labels['Phys']['Pos'].set_text('%s %s' % (dic['MC/o_robot'][0], dic['MC/o_robot'][1]))
-        self.labels['Phys']['Angle'].set_text(dic['MC/o_robot'][2])
-        self.labels['Phys']['Speed'].set_text(dic['MC/o_robot'][3])
+        self.canvas.foo = [float(f) for f in (dic['MC/o_robot']['x'], dic['MC/o_robot']['y'], dic['MC/o_robot']['angle'])]
+        self.canvas.queue_draw()
 
-        self.labels['MC']['Encs'].set_text('%s %s' % (dic['MC/i'][0], dic['MC/i'][1]))
-        self.labels['MC']['PID'].set_text('%s %s' % (dic['MC/t_pid'][0], dic['MC/t_pid'][1]))
+        # infos
 
-        self.draw_canvas(dic['MC/o_robot'][0], dic['MC/o_robot'][1], dic['MC/o_robot'][2])
+        self.labels['X']['Timer'].set_text('%s' % dic['timer']['match'])
 
-    def draw_canvas(self, x, y, angle):
-        win = self.canvas.get_window()
-        cr = win.cairo_create()
-        w = win.get_width()
-        h = win.get_height()
+        self.labels['Phys']['Pos'].set_text('%s %s' % (dic['MC/o_robot']['x'], dic['MC/o_robot']['y']))
+        self.labels['Phys']['Angle'].set_text('%s' % dic['MC/o_robot']['angle'])
+        self.labels['Phys']['Speed'].set_text('%s' % dic['MC/o_robot']['speed'])
 
-        cr.set_source_rgb(1, 1, 1)
-        cr.rectangle(0, 0, w, h)
-        cr.fill()
-
-        cr.set_source_rgb(0.9, 0.9, 0.9)
-        cr.rectangle(0+50, 0+50, 200, 300)
-        cr.fill()
-
-        cr.set_source_rgb(0.5, 0.5, 1)
-        cr.rotate(float(angle)*math.pi/180)
-        cr.rectangle(float(x)+50, float(y)+50, 50, 50)
-        cr.fill()
+        self.labels['MC']['Encs'].set_text('%s %s' % (dic['MC/i']['l'], dic['MC/i']['r']))
+        self.labels['MC']['PID'].set_text('%s %s' % (dic['MC/t_pid']['dist'], dic['MC/t_pid']['angle']))
 
 
 class LogsView(Gtk.Grid):

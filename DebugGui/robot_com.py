@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from collections import defaultdict
 import re
 import serial
 
@@ -39,20 +40,25 @@ def parse_log_to_dic(input_logs):
     c = lambda pattern: re.compile(pattern, flags=re.MULTILINE)
 
     compiled_re = (
-        c(r'^\[(timer/match)\] (.+)$'),
-        c(r'^\[(MC/i)\] (.+) (.+)$'),
-        c(r'^\[(MC/t_pid)\] \(dist angle\) (.+) (.+)$'),
-        c(r'^\[(MC/o_mot)\] \(dir pwm current\) (.+) (.+) \((.+) A\) \| (.+) (.+) \((.+) A\)$'),
-        c(r'^\[(MC/o_robot)\] \(pos angle speed\) (.+) (.+) (.+) (.+)$'),
-        c(r'^\[(timer/loop)\] (.+)$'),
+        c(r'^\[(?P<cat>timer)/match\] (?P<match>.+)$'),
+        c(r'^\[(?P<cat>MC/i)\] (?P<l>.+) (?P<r>.+)$'),
+        c(r'^\[(?P<cat>MC/t_pid)\] \(dist angle\) (?P<dist>.+) (?P<angle>.+)$'),
+        c(r"""
+            ^\[(?P<cat>MC/o_mot)\] \(dir pwm current\)
+            (?P<ldir>.+) (?P<lpwm>.+) \((?P<lcurrent>.+) A\) \|
+            (?P<rdir>.+) (?P<rpwm>.+) \((?P<rcurrent>.+) A\)$
+        """),
+        c(r'^\[(?P<cat>MC/o_robot)\] \(pos angle speed\) (?P<x>.+) (?P<y>.+) (?P<angle>.+) (?P<speed>.+)$'),
+        c(r'^\[(?P<cat>timer)/loop\] (?P<loop>.+)$'),
     )
 
-    matched = {}
+    matched = defaultdict(dict)
 
     for c in compiled_re:
         m = c.search(input_logs)
         if m:
-            g = m.groups()
-            matched[g[0]] = g[1:]
+            dic = m.groupdict()
+            cat = dic.pop('cat')
+            matched[cat].update(dic)
 
     return matched
