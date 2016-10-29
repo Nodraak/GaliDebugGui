@@ -29,7 +29,7 @@ class Board(Gtk.DrawingArea):
         'elem_bg': (0.8, 0.8, 0.8),
         'elem_edge': (0.5, 0.5, 0.5),
     }
-    ROBOT_SIZE = (400, 300)
+    ROBOT_SIZE = (300, 240)
 
     def __init__(self):
         super(Board, self).__init__()
@@ -226,7 +226,7 @@ class Board(Gtk.DrawingArea):
     def draw_robot(self, cr, robot_pos):
         x, y, angle = robot_pos
 
-        cr.translate(x+self.ROBOT_SIZE[0]/2+100, -y+self.ROBOT_SIZE[1]/2+1400)
+        cr.translate(x+self.ROBOT_SIZE[0]/2+0, -y+self.ROBOT_SIZE[1]/2+750)
 
         cr.save()
 
@@ -286,7 +286,10 @@ class MapView(Gtk.Grid):
     def update_gui(self, dic):
         # board
 
-        self.canvas.foo = [float(f) for f in (dic['MC/o_robot']['x'], dic['MC/o_robot']['y'], dic['MC/o_robot']['angle'])]
+        try:
+            self.canvas.foo = [float(f) for f in (dic['MC/o_robot']['x'], dic['MC/o_robot']['y'], dic['MC/o_robot']['angle'])]
+        except ValueError:
+            self.canvas.foo = 0, 0, 0
         self.canvas.queue_draw()
 
         # infos

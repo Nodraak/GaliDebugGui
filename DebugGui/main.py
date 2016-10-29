@@ -68,13 +68,16 @@ class App(object):
                         self.is_robot_com_ready = True
                         break
 
+                    if not self.tmp_logs:
+                        break
+
                     # parse logs (logs2data)
 
                     new_logs = '\n'.join(self.tmp_logs)
                     new_dic = parse_log_to_dic(new_logs)
                     self.tmp_logs = []
 
-                    if new_dic:
+                    if new_dic != None:
                         self.data.append(new_dic)
 
                         # update gui (data2gui)
