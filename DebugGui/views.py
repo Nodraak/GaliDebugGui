@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 
 from collections import OrderedDict
+from datetime import datetime
 import math
 
 from gi.repository import Gtk, Gdk
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_gtk3cairo import FigureCanvasGTK3Cairo as FigureCanvas
 import cairo
 
 
@@ -13,6 +16,16 @@ class MyLabel(Gtk.Label):
         super(MyLabel, self).__init__(*args)
         for k, v in kwargs.items():
             getattr(self, k)(v)
+
+
+class MyGrid(Gtk.Grid):
+    def __init__(self):
+        super(MyGrid, self).__init__()
+
+        self.set_column_homogeneous(True)
+        self.set_row_homogeneous(True)
+        self.set_row_spacing(5)
+        self.set_column_spacing(5)
 
 
 class Board(Gtk.DrawingArea):
@@ -242,14 +255,9 @@ class Board(Gtk.DrawingArea):
         cr.restore()
 
 
-class MapView(Gtk.Grid):
+class MapView(MyGrid):
     def __init__(self):
         super(MapView, self).__init__()
-
-        self.set_column_homogeneous(True)
-        self.set_row_homogeneous(True)
-        self.set_row_spacing(5)
-        self.set_column_spacing(5)
 
         self.canvas = Board()
         self.attach(self.canvas, 0, 0, 3, 1)
@@ -304,14 +312,11 @@ class MapView(Gtk.Grid):
         self.labels['MC']['PID'].set_text('%s %s' % (dic['MC/t_pid']['dist'], dic['MC/t_pid']['angle']))
 
 
-class LogsView(Gtk.Grid):
+class LogsView(MyGrid):
     def __init__(self):
         super(LogsView, self).__init__()
 
-        self.set_column_homogeneous(True)
-        self.set_row_homogeneous(True)
-        self.set_row_spacing(5)
-        self.set_column_spacing(5)
+        # todo bool autoscroll
 
         self.tb = Gtk.TextBuffer()
         self.tb.set_text('-')
@@ -339,3 +344,37 @@ class LogsView(Gtk.Grid):
 
         adj = self.sw.get_vadjustment()
         adj.set_value(adj.get_upper() - adj.get_page_size())
+
+
+class PlotsView(MyGrid):
+    def __init__(self):
+        super(PlotsView, self).__init__()
+
+        fig = plt.figure()
+        self.canvas = FigureCanvas(fig)
+        self.xs = []
+        self.plots = [
+            ([], fig.add_subplot(2, 2, 1)),
+            ([], fig.add_subplot(2, 2, 2)),
+            ([], fig.add_subplot(2, 2, 3)),
+            ([], fig.add_subplot(2, 2, 4)),
+        ]
+
+        self.add(self.canvas)
+
+        self.last_draw = datetime.utcnow()
+
+    def update_gui(self, dic):
+        self.xs.append(dic['timer']['match'])
+        self.plots[0][0].append(dic['MC/o_robot']['angle'])
+        self.plots[1][0].append(dic['MC/o_robot']['x'])
+        self.plots[2][0].append(dic['MC/o_robot']['y'])
+        self.plots[3][0].append(dic['MC/o_robot']['speed'])
+
+        if (datetime.utcnow()-self.last_draw).total_seconds() > 0.500:
+            for ys, plot in self.plots:
+                plot.cla()
+                plot.plot(self.xs, ys)
+
+            self.canvas.draw()
+            self.last_draw = datetime.utcnow()

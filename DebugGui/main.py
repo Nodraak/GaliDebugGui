@@ -6,13 +6,13 @@ import select
 
 from gi.repository import Gtk, GObject
 
-from views import MapView, LogsView
+from views import MapView, LogsView, PlotsView
 from robot_com import SerialRobot, LoggedRobot, parse_log_to_dic
 
 
 SERIAL_DEVICE = '/dev/ttyUSB0'
 SERIAL_SPEED = 115200
-LOG_FILE = '../Deoxys/log2.txt'
+LOG_FILE = '../Deoxys/log4.txt'
 
 
 class App(object):
@@ -83,6 +83,7 @@ class App(object):
                         # update gui (data2gui)
                         self.main_window.tabs['Map'].update_gui(new_dic)
                         self.main_window.tabs['Logs'].update_gui(new_logs)
+                        self.main_window.tabs['Plots'].update_gui(new_dic)
 
                     break  # prevent the gui from becomming unresponsive
 
@@ -100,6 +101,9 @@ class MainWindow(Gtk.Window):
         self.tabs = OrderedDict((
             ('Map', MapView()),
             ('Logs', LogsView()),
+            ('Plots', PlotsView()),
+            # todo :
+            #   Full Info
         ))
 
         self.set_title('Gali debug')
@@ -112,7 +116,17 @@ class MainWindow(Gtk.Window):
         self.notebook.set_tab_pos(Gtk.PositionType.TOP)
         for tab_title, tab_widget in self.tabs.items():
             self.notebook.append_page(tab_widget, Gtk.Label(tab_title))
-        self.add(self.notebook)
+
+        tmp = Gtk.VBox()
+
+        sc = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 10, 0.100)
+        sc.set_property('draw-value', False)
+        # sc.add_mark(5, Gtk.PositionType.TOP, None)
+
+        tmp.add(sc)
+        tmp.add(self.notebook)
+
+        self.add(tmp)
 
     def quit(self, *args):
         Gtk.main_quit()
