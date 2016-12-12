@@ -12,7 +12,8 @@ from robot_com import SerialRobot, LoggedRobot, parse_log_to_dic
 
 SERIAL_DEVICE = '/dev/ttyUSB0'
 SERIAL_SPEED = 115200
-LOG_FILE = '../Deoxys/log4.txt'
+LOG_FILE_IN = './log1.txt'
+LOG_FILE_OUT = './last_log.txt'
 
 
 class App(object):
@@ -24,8 +25,8 @@ class App(object):
         self.tmp_logs = []
         self.data = []
 
-        # self.robot = SerialRobot(SERIAL_DEVICE, SERIAL_SPEED)
-        self.robot = LoggedRobot(LOG_FILE)
+        #self.robot = SerialRobot(SERIAL_DEVICE, SERIAL_SPEED, LOG_FILE_OUT)
+        self.robot = LoggedRobot(LOG_FILE_IN)
 
         self.main_window = MainWindow()
 
@@ -54,7 +55,7 @@ class App(object):
 
             ready_for_read, _, _ = select.select([self.robot.fd], [], [], 0)
 
-            if len(ready_for_read) == 0:
+            if (len(ready_for_read) == 0) or (not self.robot.should_read()):
                 break
 
             line = self.robot.readline()
@@ -136,8 +137,11 @@ class MainWindow(Gtk.Window):
 
 
 def main():
+    print('Starting DebugGui...')
     app = App()
+    print('Running...')
     app.run()
+    print('Quitting...')
     app.quit()
 
 

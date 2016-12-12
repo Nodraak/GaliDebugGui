@@ -309,6 +309,12 @@ class MapView(MyGrid):
         self.labels['Phys']['Speed'].set_text('%s' % dic['MC/o_robot']['speed'])
 
         self.labels['MC']['Encs'].set_text('%s %s' % (dic['MC/i']['l'], dic['MC/i']['r']))
+        self.labels['MC']['Motors'].set_text('%s %s | %s %s' % (
+            dic['MC/o_mot']['ldir'],
+            dic['MC/o_mot']['lpwm'],
+            dic['MC/o_mot']['rdir'],
+            dic['MC/o_mot']['rpwm']
+        ))
         self.labels['MC']['PID'].set_text('%s %s' % (dic['MC/t_pid']['dist'], dic['MC/t_pid']['angle']))
 
 
